@@ -409,7 +409,10 @@ const ensureQueueLength = (count) => {
     state.items.push({
       label: `Item ${state.items.length + 1}`,
       progress: 0,
-      status: "Pending"
+      status: "Pending",
+      url: "",
+      failed: false,
+      failedReason: ""
     });
   }
 };
@@ -444,6 +447,35 @@ const updateLabel = (label) => {
   }
   state.items[state.currentIndex].label = label;
   renderQueue();
+};
+
+const markItemFailed = (item, index, reason) => {
+  if (!item || item.failed) return;
+  const label = item.label || `Item ${index + 1}`;
+  const url = item.url || state.currentUrl || "";
+  const message = reason || "Unavailable";
+  item.failed = true;
+  item.failedReason = message;
+  item.status = "Failed";
+  state.failed.push({ label, url, reason: message, copied: false });
+};
+
+const recordFailure = (reason) => {
+  if (state.items.length === 0) {
+    ensureQueueLength(1);
+  }
+  const item = state.items[state.currentIndex];
+  markItemFailed(item, state.currentIndex, reason);
+  renderQueue();
+  renderFailed();
+  persistFailedReport();
+};
+
+const finalizeIncompleteItems = () => {
+  state.items.forEach((item, index) => {
+    if (!item || item.failed || item.progress >= 100) return;
+    markItemFailed(item, index, item.failedReason || "Not downloaded");
+  });
 };
 
 const resetSession = () => {
@@ -618,6 +650,13 @@ const parseOutputLine = (line) => {
   const urlMatch = line.match(/Extracting URL:\s+(\S+)/i);
   if (urlMatch) {
     state.currentUrl = urlMatch[1];
+    if (state.items.length === 0) {
+      ensureQueueLength(1);
+    }
+    const item = state.items[state.currentIndex];
+    if (item) {
+      item.url = state.currentUrl;
+    }
   }
 
   const destinationMatch = line.match(/Destination:\s+(.+)/i);
@@ -665,21 +704,11 @@ const parseOutputLine = (line) => {
     updateOverall();
   }
 
-  if (/ERROR: \[youtube\].*(video unavailable|not available|private video)/i.test(line)) {
-    const reason = line.replace(/^ERROR:\s*/i, "").trim();
-    const label = state.currentLabel || state.currentUrl || "Unknown item";
-    state.failed.push({ label, url: state.currentUrl, reason, copied: false });
-    if (state.items[state.currentIndex]) {
-      state.items[state.currentIndex].status = "Failed";
-    }
-    renderQueue();
-    renderFailed();
-    persistFailedReport();
+  const errorMatch = line.match(/^ERROR:\s*(.+)$/i);
+  if (errorMatch && state.active) {
+    const reason = errorMatch[1].trim();
+    recordFailure(reason);
     updateStatusSummary();
-  }
-
-  if (/ERROR:/i.test(line) && state.active) {
-    setStatus("Downloading...", "neutral");
   }
 };
 
@@ -873,6 +902,7 @@ if (window.zeno && typeof window.zeno.onDownloadExit === "function") {
     }
 
     if (code === 0) {
+      finalizeIncompleteItems();
       updateStatusSummary(true);
       if (state.playlistTotal) {
         state.playlistIndex = state.playlistTotal;
@@ -880,19 +910,17 @@ if (window.zeno && typeof window.zeno.onDownloadExit === "function") {
         updateOverall();
       }
       state.items.forEach((item) => {
-        item.progress = 100;
-        item.status = "Complete";
+        if (!item.failed) {
+          item.progress = 100;
+          item.status = "Complete";
+        }
       });
       renderQueue();
       renderFailed();
       persistFailedReport();
     } else {
+      finalizeIncompleteItems();
       updateStatusSummary(true);
-      state.items.forEach((item) => {
-        if (item.progress < 100) {
-          item.status = "Error";
-        }
-      });
       renderQueue();
       renderFailed();
       persistFailedReport();
