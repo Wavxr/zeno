@@ -69,14 +69,13 @@ const buildYtDlpArgs = (options) => {
   args.push("-P", options.outputDir);
   args.push("-o", "%(title)s.%(ext)s");
 
+  if (options.metadata) {
+    args.push("--add-metadata");
+    args.push("--parse-metadata", "%(title)s:%(meta_title)s");
+    args.push("--parse-metadata", "%(uploader|)s:%(meta_contributing_artist)s");
+  }
+
   if (options.mode === "audio") {
-    if (options.metadata) {
-      args.push("--add-metadata");
-      args.push(
-        "--postprocessor-args",
-        "ffmpeg:-metadata title=%(title)s -metadata contributing_artist=%(uploader)s"
-      );
-    }
     args.push("-f", "ba");
     args.push("-x");
     if (options.audioFormat) {
