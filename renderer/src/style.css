@@ -425,15 +425,15 @@ body {
 }
 
 .copy-button.is-copied {
-  background: var(--accent);
-  color: #ffffff;
+  background: #ffffff;
+  color: var(--accent);
   border-color: var(--accent);
 }
 
 .copy-button.is-copied:hover,
 .copy-button.is-copied:focus-visible {
-  background: var(--accent);
-  color: #ffffff;
+  background: #ffffff;
+  color: var(--accent);
   border-color: var(--accent);
 }
 

@@ -233,6 +233,7 @@ const logOutput = document.querySelector("#log-output");
 const appMeta = document.querySelector("#app-meta");
 
 const MAX_LOG_LINES = 240;
+const COPY_RESET_DELAY = 1600;
 const logLines = [];
 
 const state = {
@@ -816,8 +817,16 @@ if (failedList) {
     if (!item || !item.url) return;
     try {
       await navigator.clipboard.writeText(item.url);
+      if (item.copyResetId) {
+        clearTimeout(item.copyResetId);
+      }
       item.copied = true;
       renderFailed();
+      item.copyResetId = window.setTimeout(() => {
+        item.copied = false;
+        item.copyResetId = null;
+        renderFailed();
+      }, COPY_RESET_DELAY);
     } catch {
       setStatus("Failed to copy link", "error");
     }
