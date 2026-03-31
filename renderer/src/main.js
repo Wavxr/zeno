@@ -6,6 +6,42 @@ if (!app) {
   throw new Error("App container not found");
 }
 
+const THEME_STORAGE_KEY = "zeno:theme";
+
+const getStoredTheme = () => {
+  const stored = localStorage.getItem(THEME_STORAGE_KEY);
+  if (stored === "light" || stored === "dark") {
+    return stored;
+  }
+  return null;
+};
+
+const getSystemTheme = () => {
+  if (!window.matchMedia) {
+    return "light";
+  }
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+};
+
+let themeToggle = null;
+
+const setTheme = (theme, persist = true) => {
+  const normalized = theme === "dark" ? "dark" : "light";
+  document.documentElement.dataset.theme = normalized;
+  if (persist) {
+    localStorage.setItem(THEME_STORAGE_KEY, normalized);
+  }
+  if (themeToggle) {
+    themeToggle.textContent = `Theme: ${normalized}`;
+    themeToggle.setAttribute("aria-pressed", normalized === "dark");
+  }
+  return normalized;
+};
+
+const storedTheme = getStoredTheme();
+const initialTheme = storedTheme || getSystemTheme();
+setTheme(initialTheme, Boolean(storedTheme));
+
 app.innerHTML = `
   <div class="app">
     <header class="header">
@@ -13,8 +49,11 @@ app.innerHTML = `
         <p class="kicker">ZENO</p>
         <h1 class="title">_console</h1>
       </div>
-      <div class="meta">
+      <div class="meta header-meta">
         <span id="app-meta">Loading...</span>
+        <button id="theme-toggle" class="button theme-toggle" type="button" aria-pressed="false">
+          Theme: Light
+        </button>
       </div>
     </header>
 
@@ -231,6 +270,27 @@ const queueList = document.querySelector("#queue-list");
 const failedList = document.querySelector("#failed-list");
 const logOutput = document.querySelector("#log-output");
 const appMeta = document.querySelector("#app-meta");
+themeToggle = document.querySelector("#theme-toggle");
+
+setTheme(initialTheme, Boolean(storedTheme));
+
+if (themeToggle) {
+  themeToggle.addEventListener("click", () => {
+    const currentTheme = document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+    const nextTheme = currentTheme === "dark" ? "light" : "dark";
+    setTheme(nextTheme, true);
+  });
+}
+
+const themeMedia = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : null;
+if (themeMedia) {
+  themeMedia.addEventListener("change", (event) => {
+    if (getStoredTheme()) {
+      return;
+    }
+    setTheme(event.matches ? "dark" : "light", false);
+  });
+}
 
 const MAX_LOG_LINES = 240;
 const COPY_RESET_DELAY = 1600;
