@@ -238,6 +238,7 @@ const logLines = [];
 
 const state = {
   active: false,
+  canceled: false,
   items: [],
   currentIndex: 0,
   failed: [],
@@ -455,6 +456,7 @@ const resetSession = () => {
   state.playlistTotal = 0;
   state.currentPercent = 0;
   state.outputDir = "";
+  state.canceled = false;
   logLines.length = 0;
   if (logOutput) {
     logOutput.textContent = "";
@@ -700,6 +702,7 @@ const startDownload = async () => {
   state.outputDir = outputDir;
   setStatus("Starting...", "neutral");
   state.active = true;
+  state.canceled = false;
 
   if (startButton) startButton.disabled = true;
   if (cancelButton) cancelButton.disabled = false;
@@ -741,8 +744,9 @@ const cancelDownload = async () => {
   if (!window.zeno || typeof window.zeno.cancelDownload !== "function") {
     return;
   }
+  state.canceled = true;
   await window.zeno.cancelDownload();
-  setStatus("Stopped", "error");
+  setStatus("Stopped", "stopped");
   if (startButton) startButton.disabled = false;
   if (cancelButton) cancelButton.disabled = true;
   state.active = false;
@@ -844,6 +848,19 @@ if (window.zeno && typeof window.zeno.onDownloadExit === "function") {
     state.active = false;
     if (startButton) startButton.disabled = false;
     if (cancelButton) cancelButton.disabled = true;
+
+    if (state.canceled) {
+      setStatus("Stopped", "stopped");
+      state.items.forEach((item) => {
+        if (item.progress < 100) {
+          item.status = "Stopped";
+        }
+      });
+      renderQueue();
+      renderFailed();
+      persistFailedReport();
+      return;
+    }
 
     if (code === 0) {
       updateStatusSummary(true);
