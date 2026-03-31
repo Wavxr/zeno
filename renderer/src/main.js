@@ -374,6 +374,9 @@ const persistFailedReport = async () => {
   if (!state.outputDir) {
     return;
   }
+  if (!state.failed.length) {
+    return;
+  }
 
   try {
     await window.zeno.writeFailedReport({
