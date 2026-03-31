@@ -645,7 +645,17 @@ const parseOutputLine = (line) => {
     }
   }
 
+  const alreadyDownloadedMatch = line.match(
+    /\[download\]\s+(.+?)\s+has already been downloaded/i
+  );
   if (/has already been downloaded/i.test(line)) {
+    if (alreadyDownloadedMatch) {
+      const label = normalizeTitle(alreadyDownloadedMatch[1].trim());
+      if (label) {
+        state.currentLabel = label;
+        updateLabel(label);
+      }
+    }
     if (!state.playlistTotal) {
       state.playlistTotal = 1;
       state.playlistIndex = 1;
